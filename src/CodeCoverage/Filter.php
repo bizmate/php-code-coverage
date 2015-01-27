@@ -1,46 +1,11 @@
 <?php
-/**
- * PHP_CodeCoverage
+/*
+ * This file is part of the PHP_CodeCoverage package.
  *
- * Copyright (c) 2009-2014, Sebastian Bergmann <sebastian@phpunit.de>.
- * All rights reserved.
+ * (c) Sebastian Bergmann <sebastian@phpunit.de>
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *
- *   * Redistributions in binary form must reproduce the above copyright
- *     notice, this list of conditions and the following disclaimer in
- *     the documentation and/or other materials provided with the
- *     distribution.
- *
- *   * Neither the name of Sebastian Bergmann nor the names of his
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @category   PHP
- * @package    CodeCoverage
- * @author     Sebastian Bergmann <sebastian@phpunit.de>
- * @copyright  2009-2014 Sebastian Bergmann <sebastian@phpunit.de>
- * @license    http://www.opensource.org/licenses/BSD-3-Clause  The BSD 3-Clause License
- * @link       http://github.com/sebastianbergmann/php-code-coverage
- * @since      File available since Release 1.0.0
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
 
 /**
@@ -49,7 +14,7 @@
  * @category   PHP
  * @package    CodeCoverage
  * @author     Sebastian Bergmann <sebastian@phpunit.de>
- * @copyright  2009-2014 Sebastian Bergmann <sebastian@phpunit.de>
+ * @copyright  Sebastian Bergmann <sebastian@phpunit.de>
  * @license    http://www.opensource.org/licenses/BSD-3-Clause  The BSD 3-Clause License
  * @link       http://github.com/sebastianbergmann/php-code-coverage
  * @since      Class available since Release 1.0.0
@@ -74,6 +39,34 @@ class PHP_CodeCoverage_Filter
      * @var boolean
      */
     private $blacklistPrefilled = false;
+
+    /**
+     * A list of classes which are always blacklisted
+     *
+     * @var array
+     */
+    public static $blacklistClassNames = array(
+        'File_Iterator' => 1,
+        'PHP_CodeCoverage' => 1,
+        'PHP_Invoker' => 1,
+        'PHP_Timer' => 1,
+        'PHP_Token' => 1,
+        'PHPUnit_Framework_TestCase' => 2,
+        'PHPUnit_Extensions_Database_TestCase' => 2,
+        'PHPUnit_Framework_MockObject_Generator' => 2,
+        'PHPUnit_Extensions_SeleniumTestCase' => 2,
+        'PHPUnit_Extensions_Story_TestCase' => 2,
+        'Text_Template' => 1,
+        'Symfony\Component\Yaml\Yaml' => 1,
+        'SebastianBergmann\Diff\Diff' => 1,
+        'SebastianBergmann\Environment\Runtime' => 1,
+        'SebastianBergmann\Comparator\Comparator' => 1,
+        'SebastianBergmann\Exporter\Exporter' => 1,
+        'SebastianBergmann\RecursionContext\Context' => 1,
+        'SebastianBergmann\Version' => 1,
+        'Composer\Autoload\ClassLoader' => 1,
+        'Doctrine\Instantiator\Instantiator' => 1
+    );
 
     /**
      * Adds a directory to the blacklist (recursively).
@@ -223,6 +216,8 @@ class PHP_CodeCoverage_Filter
     public function isFile($filename)
     {
         if ($filename == '-' ||
+            strpos($filename, 'vfs://') === 0 ||
+            strpos($filename, 'xdebug://debug-eval') !== false ||
             strpos($filename, 'eval()\'d code') !== false ||
             strpos($filename, 'runtime-created function') !== false ||
             strpos($filename, 'runkit created function') !== false ||
@@ -231,7 +226,7 @@ class PHP_CodeCoverage_Filter
             return false;
         }
 
-        return true;
+        return file_exists($filename);
     }
 
     /**
@@ -247,6 +242,10 @@ class PHP_CodeCoverage_Filter
      */
     public function isFiltered($filename)
     {
+        if (!$this->isFile($filename)) {
+            return true;
+        }
+
         $filename = realpath($filename);
 
         if (!empty($this->whitelistedFiles)) {
@@ -300,21 +299,9 @@ class PHP_CodeCoverage_Filter
             $this->addFileToBlacklist(__PHPUNIT_PHAR__);
         }
 
-        $this->addDirectoryContainingClassToBlacklist('File_Iterator');
-        $this->addDirectoryContainingClassToBlacklist('PHP_CodeCoverage');
-        $this->addDirectoryContainingClassToBlacklist('PHP_Invoker');
-        $this->addDirectoryContainingClassToBlacklist('PHP_Timer');
-        $this->addDirectoryContainingClassToBlacklist('PHP_Token');
-        $this->addDirectoryContainingClassToBlacklist('PHPUnit_Framework_TestCase', 2);
-        $this->addDirectoryContainingClassToBlacklist('PHPUnit_Extensions_Database_TestCase', 2);
-        $this->addDirectoryContainingClassToBlacklist('PHPUnit_Framework_MockObject_Generator', 2);
-        $this->addDirectoryContainingClassToBlacklist('PHPUnit_Extensions_SeleniumTestCase', 2);
-        $this->addDirectoryContainingClassToBlacklist('PHPUnit_Extensions_Story_TestCase', 2);
-        $this->addDirectoryContainingClassToBlacklist('Text_Template');
-        $this->addDirectoryContainingClassToBlacklist('Symfony\Component\Yaml\Yaml');
-        $this->addDirectoryContainingClassToBlacklist('SebastianBergmann\Diff');
-        $this->addDirectoryContainingClassToBlacklist('SebastianBergmann\Exporter\Exporter');
-        $this->addDirectoryContainingClassToBlacklist('SebastianBergmann\Version');
+        foreach (self::$blacklistClassNames as $className => $parent) {
+            $this->addDirectoryContainingClassToBlacklist($className, $parent);
+        }
 
         $this->blacklistPrefilled = true;
     }
@@ -344,7 +331,7 @@ class PHP_CodeCoverage_Filter
      * Returns the blacklisted files.
      *
      * @return array
-     * @since Method available since Release 1.3.0
+     * @since Method available since Release 2.0.0
      */
     public function getBlacklistedFiles()
     {
@@ -355,7 +342,7 @@ class PHP_CodeCoverage_Filter
      * Sets the blacklisted files.
      *
      * @param array $blacklistedFiles
-     * @since Method available since Release 1.3.0
+     * @since Method available since Release 2.0.0
      */
     public function setBlacklistedFiles($blacklistedFiles)
     {
@@ -366,7 +353,7 @@ class PHP_CodeCoverage_Filter
      * Returns the whitelisted files.
      *
      * @return array
-     * @since Method available since Release 1.3.0
+     * @since Method available since Release 2.0.0
      */
     public function getWhitelistedFiles()
     {
@@ -377,7 +364,7 @@ class PHP_CodeCoverage_Filter
      * Sets the whitelisted files.
      *
      * @param array $whitelistedFiles
-     * @since Method available since Release 1.3.0
+     * @since Method available since Release 2.0.0
      */
     public function setWhitelistedFiles($whitelistedFiles)
     {

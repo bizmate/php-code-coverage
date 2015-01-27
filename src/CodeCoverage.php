@@ -1,47 +1,14 @@
 <?php
-/**
- * PHP_CodeCoverage
+/*
+ * This file is part of the PHP_CodeCoverage package.
  *
- * Copyright (c) 2009-2014, Sebastian Bergmann <sebastian@phpunit.de>.
- * All rights reserved.
+ * (c) Sebastian Bergmann <sebastian@phpunit.de>
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *
- *   * Redistributions in binary form must reproduce the above copyright
- *     notice, this list of conditions and the following disclaimer in
- *     the documentation and/or other materials provided with the
- *     distribution.
- *
- *   * Neither the name of Sebastian Bergmann nor the names of his
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @category   PHP
- * @package    CodeCoverage
- * @author     Sebastian Bergmann <sebastian@phpunit.de>
- * @copyright  2009-2014 Sebastian Bergmann <sebastian@phpunit.de>
- * @license    http://www.opensource.org/licenses/BSD-3-Clause  The BSD 3-Clause License
- * @link       http://github.com/sebastianbergmann/php-code-coverage
- * @since      File available since Release 1.0.0
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+use SebastianBergmann\Environment\Runtime;
 
 /**
  * Provides collection functionality for PHP code coverage information.
@@ -49,7 +16,7 @@
  * @category   PHP
  * @package    CodeCoverage
  * @author     Sebastian Bergmann <sebastian@phpunit.de>
- * @copyright  2009-2014 Sebastian Bergmann <sebastian@phpunit.de>
+ * @copyright  Sebastian Bergmann <sebastian@phpunit.de>
  * @license    http://www.opensource.org/licenses/BSD-3-Clause  The BSD 3-Clause License
  * @link       http://github.com/sebastianbergmann/php-code-coverage
  * @since      Class available since Release 1.0.0
@@ -123,18 +90,21 @@ class PHP_CodeCoverage
     /**
      * Constructor.
      *
-     * @param PHP_CodeCoverage_Driver $driver
-     * @param PHP_CodeCoverage_Filter $filter
+     * @param  PHP_CodeCoverage_Driver $driver
+     * @param  PHP_CodeCoverage_Filter $filter
+     * @throws PHP_CodeCoverage_Exception
      */
     public function __construct(PHP_CodeCoverage_Driver $driver = null, PHP_CodeCoverage_Filter $filter = null)
     {
         if ($driver === null) {
-            if (defined('HPHP_VERSION')) {
-                $driver = new PHP_CodeCoverage_Driver_HHVM;
-            }
+            $runtime = new Runtime;
 
-            else if (extension_loaded('xdebug')) {
+            if ($runtime->isHHVM()) {
+                $driver = new PHP_CodeCoverage_Driver_HHVM;
+            } elseif ($runtime->hasXdebug()) {
                 $driver = new PHP_CodeCoverage_Driver_Xdebug;
+            } else {
+                throw new PHP_CodeCoverage_Exception('No code coverage driver available');
             }
         }
 
@@ -182,19 +152,21 @@ class PHP_CodeCoverage
 
     /**
      * Returns the collected code coverage data.
+     * Set $raw = true to bypass all filters.
      *
+     * @param bool $raw
      * @return array
      * @since  Method available since Release 1.1.0
      */
-    public function getData()
+    public function getData($raw = false)
     {
-        if ($this->addUncoveredFilesFromWhitelist) {
+        if (!$raw && $this->addUncoveredFilesFromWhitelist) {
             $this->addUncoveredFilesFromWhitelist();
         }
 
         // We need to apply the blacklist filter a second time
         // when no whitelist is used.
-        if (!$this->filter->hasWhitelist()) {
+        if (!$raw && !$this->filter->hasWhitelist()) {
             $this->applyListsFilter($this->data);
         }
 
@@ -205,7 +177,7 @@ class PHP_CodeCoverage
      * Sets the coverage data.
      *
      * @param array $data
-     * @since Method available since Release 1.3.0
+     * @since Method available since Release 2.0.0
      */
     public function setData(array $data)
     {
@@ -227,7 +199,7 @@ class PHP_CodeCoverage
      * Sets the test data.
      *
      * @param array $tests
-     * @since Method available since Release 1.3.0
+     * @since Method available since Release 2.0.0
      */
     public function setTests(array $tests)
     {
@@ -416,7 +388,7 @@ class PHP_CodeCoverage
     /**
      * @param  boolean                    $flag
      * @throws PHP_CodeCoverage_Exception
-     * @since  Method available since Release 1.3.0
+     * @since  Method available since Release 2.0.0
      */
     public function setCheckForUnintentionallyCoveredCode($flag)
     {
@@ -564,10 +536,6 @@ class PHP_CodeCoverage
             foreach ($this->getLinesToBeIgnored($filename) as $line) {
                 unset($data[$filename][$line]);
             }
-
-            if (empty($data[$filename])) {
-                unset($data[$filename]);
-            }
         }
     }
 
@@ -655,7 +623,7 @@ class PHP_CodeCoverage
      * @param  string                     $filename
      * @return array
      * @throws PHP_CodeCoverage_Exception
-     * @since  Method available since Release 1.3.0
+     * @since  Method available since Release 2.0.0
      */
     private function getLinesToBeIgnored($filename)
     {
@@ -707,22 +675,24 @@ class PHP_CodeCoverage
                             $stop = true;
                         }
 
-                        // Do not ignore the whole line when there is a token
-                        // before the comment on the same line
-                        if (0 === strpos($_token, $_line)) {
-                            $count = substr_count($token, "\n");
-                            $line  = $token->getLine();
+                        if (!$ignore) {
+                            $start = $token->getLine();
+                            $end = $start + substr_count($token, "\n");
 
-                            for ($i = $line; $i < $line + $count; $i++) {
+                            // Do not ignore the first line when there is a token
+                            // before the comment
+                            if (0 !== strpos($_token, $_line)) {
+                                $start++;
+                            }
+
+                            for ($i = $start; $i < $end; $i++) {
                                 $this->ignoredLines[$filename][] = $i;
                             }
 
-                            if ($token instanceof PHP_Token_DOC_COMMENT) {
-                                // The DOC_COMMENT token does not contain the
-                                // final \n character in its text
-                                if (substr(trim($lines[$i-1]), -2) == '*/') {
-                                    $this->ignoredLines[$filename][] = $i;
-                                }
+                            // A DOC_COMMENT token or a COMMENT token starting with "/*"
+                            // does not contain the final \n character in its text
+                            if (0 === strpos($_token, '/*') && '*/' === substr(trim($lines[$i-1]), -2)) {
+                                $this->ignoredLines[$filename][] = $i;
                             }
                         }
                         break;
@@ -819,7 +789,7 @@ class PHP_CodeCoverage
      * @param  array                                                 $linesToBeCovered
      * @param  array                                                 $linesToBeUsed
      * @throws PHP_CodeCoverage_Exception_UnintentionallyCoveredCode
-     * @since Method available since Release 1.3.0
+     * @since Method available since Release 2.0.0
      */
     private function performUnintentionallyCoveredCodeCheck(array &$data, array $linesToBeCovered, array $linesToBeUsed)
     {
@@ -855,7 +825,7 @@ class PHP_CodeCoverage
      * @param  array $linesToBeCovered
      * @param  array $linesToBeUsed
      * @return array
-     * @since Method available since Release 1.3.0
+     * @since Method available since Release 2.0.0
      */
     private function getAllowedLines(array $linesToBeCovered, array $linesToBeUsed)
     {

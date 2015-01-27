@@ -1,47 +1,34 @@
 <?php
-/**
- * PHP_CodeCoverage
+/*
+ * This file is part of the PHP_CodeCoverage package.
  *
- * Copyright (c) 2009-2014, Sebastian Bergmann <sebastian@phpunit.de>.
- * All rights reserved.
+ * (c) Sebastian Bergmann <sebastian@phpunit.de>
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *
- *   * Redistributions in binary form must reproduce the above copyright
- *     notice, this list of conditions and the following disclaimer in
- *     the documentation and/or other materials provided with the
- *     distribution.
- *
- *   * Neither the name of Sebastian Bergmann nor the names of his
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @category   PHP
- * @package    CodeCoverage
- * @author     Sebastian Bergmann <sebastian@phpunit.de>
- * @copyright  2009-2014 Sebastian Bergmann <sebastian@phpunit.de>
- * @license    http://www.opensource.org/licenses/BSD-3-Clause  The BSD 3-Clause License
- * @link       http://github.com/sebastianbergmann/php-code-coverage
- * @since      File available since Release 1.1.0
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+// @codeCoverageIgnoreStart
+if (!defined('T_TRAIT')) {
+    define('T_TRAIT', 1001);
+}
+
+if (!defined('T_INSTEADOF')) {
+    define('T_INSTEADOF', 1002);
+}
+
+if (!defined('T_CALLABLE')) {
+    define('T_CALLABLE', 1003);
+}
+
+if (!defined('T_FINALLY')) {
+    define('T_FINALLY', 1004);
+}
+
+if (!defined('T_YIELD')) {
+    define('T_YIELD', 1005);
+}
+// @codeCoverageIgnoreEnd
 
 /**
  * Renders a PHP_CodeCoverage_Report_Node_File node.
@@ -49,7 +36,7 @@
  * @category   PHP
  * @package    CodeCoverage
  * @author     Sebastian Bergmann <sebastian@phpunit.de>
- * @copyright  2009-2014 Sebastian Bergmann <sebastian@phpunit.de>
+ * @copyright  Sebastian Bergmann <sebastian@phpunit.de>
  * @license    http://www.opensource.org/licenses/BSD-3-Clause  The BSD 3-Clause License
  * @link       http://github.com/sebastianbergmann/php-code-coverage
  * @since      Class available since Release 1.1.0
@@ -57,33 +44,23 @@
 class PHP_CodeCoverage_Report_HTML_Renderer_File extends PHP_CodeCoverage_Report_HTML_Renderer
 {
     /**
-     * @var boolean
-     */
-    protected $highlight;
-
-    /**
      * Constructor.
      *
      * @param string  $templatePath
-     * @param string  $charset
      * @param string  $generator
      * @param string  $date
      * @param integer $lowUpperBound
      * @param integer $highLowerBound
-     * @param boolean $highlight
      */
-    public function __construct($templatePath, $charset, $generator, $date, $lowUpperBound, $highLowerBound, $highlight)
+    public function __construct($templatePath, $generator, $date, $lowUpperBound, $highLowerBound)
     {
         parent::__construct(
             $templatePath,
-            $charset,
             $generator,
             $date,
             $lowUpperBound,
             $highLowerBound
         );
-
-        $this->highlight = $highlight;
     }
 
     /**
@@ -322,7 +299,7 @@ class PHP_CodeCoverage_Report_HTML_Renderer_File extends PHP_CodeCoverage_Report
             $popoverContent = '';
             $popoverTitle   = '';
 
-            if (isset($coverageData[$i])) {
+            if (array_key_exists($i, $coverageData)) {
                 $numTests = count($coverageData[$i]);
 
                 if ($coverageData[$i] === null) {
@@ -396,7 +373,7 @@ class PHP_CodeCoverage_Report_HTML_Renderer_File extends PHP_CodeCoverage_Report
                 $i,
                 $i,
                 $i,
-                !$this->highlight ? htmlspecialchars($line) : $line
+                $line
             );
 
             $i++;
@@ -411,26 +388,14 @@ class PHP_CodeCoverage_Report_HTML_Renderer_File extends PHP_CodeCoverage_Report
      */
     protected function loadFile($file)
     {
-        $buffer = file_get_contents($file);
-        $lines  = explode("\n", str_replace("\t", '    ', $buffer));
-        $result = array();
+        $buffer              = file_get_contents($file);
+        $tokens              = token_get_all($buffer);
+        $result              = array('');
+        $i                   = 0;
+        $stringFlag          = false;
+        $fileEndsWithNewLine = substr($buffer, -1) == "\n";
 
-        if (count($lines) == 0) {
-            return $result;
-        }
-
-        $lines = array_map('rtrim', $lines);
-
-        if (!$this->highlight) {
-            unset($lines[count($lines)-1]);
-
-            return $lines;
-        }
-
-        $tokens     = token_get_all($buffer);
-        $stringFlag = false;
-        $i          = 0;
-        $result[$i] = '';
+        unset($buffer);
 
         foreach ($tokens as $j => $token) {
             if (is_string($token)) {
@@ -509,6 +474,7 @@ class PHP_CodeCoverage_Report_HTML_Renderer_File extends PHP_CodeCoverage_Report
                                 case T_EXIT:
                                 case T_EXTENDS:
                                 case T_FINAL:
+                                case T_FINALLY:
                                 case T_FOREACH:
                                 case T_FUNCTION:
                                 case T_GLOBAL:
@@ -538,7 +504,8 @@ class PHP_CodeCoverage_Report_HTML_Renderer_File extends PHP_CodeCoverage_Report
                                 case T_UNSET:
                                 case T_USE:
                                 case T_VAR:
-                                case T_WHILE: {
+                                case T_WHILE:
+                                case T_YIELD: {
                                     $colour = 'keyword';
                                 }
                                     break;
@@ -564,7 +531,9 @@ class PHP_CodeCoverage_Report_HTML_Renderer_File extends PHP_CodeCoverage_Report
             }
         }
 
-        unset($result[count($result)-1]);
+        if ($fileEndsWithNewLine) {
+            unset($result[count($result)-1]);
+        }
 
         return $result;
     }
